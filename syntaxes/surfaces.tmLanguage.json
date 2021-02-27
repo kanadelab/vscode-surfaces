@@ -1,0 +1,138 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "surfaces",
+	"patterns": [
+		{
+			"include": "#file"
+		},
+		{
+			"include": "#header"
+		},
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#comment"
+		},
+		{
+			"include": "#element"
+		}
+	],
+	"repository": {
+		"header": {
+			"patterns": [
+				{
+					"name": "markup.underline",
+					"match": "^\\s*surface.+"
+				},
+				{
+					"name": "markup.underline",
+					"match": "^\\s*(sakura|kero)\\.(cursor|tooltips)"
+				}
+		]
+		},
+		"comment":{
+			"patterns": [
+				{
+					"name": "entity.name.class",
+					"match": "^\\s*//satolist\\.surface\\.default"
+				},
+				{
+					"name": "entity.name.class",
+					"match": "^\\s*//satolist\\.palette\\.(offset|visible)"
+				},
+				{
+					"name": "entity.name.class",
+					"match": "^\\s*//satolist\\.viewer\\.visible"
+				},
+				{
+				"name": "comment.line",
+				"match": "//.*"
+				}]
+		},
+		"keywords":{
+			"patterns":[
+			{
+				"name": "keyword.control",
+				"match": "(rarely|overlayfast|overlay|bind|sometimes|random|periodic|always|never|yen-e|talk|base|replace|interpolate|asis|move|add|reduce|insert|start|stop|runonce|alternativestart|alternativestop|descript|charset|descend|exclusive|background|rect|polygon|ellipse|circle)"
+			},
+			{
+				"name": "keyword.control",
+				"match": "(system:allow|system:cross|system:no|system:hand|system:grip|system:finger|system:wait|system:text|system:move|system:help)"
+			}]
+		},
+		"element":{
+			"patterns": [
+
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*(animation-sort|version|charset|collision-sort|maxwidth)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*element[0-9]+"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*(mouseup|mousedown|mousewheel|mousehover)[0-9]+"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*(kero|sakura)?\\.?balloon\\.(offsetx|offsety)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*balloon\\.(offsetx|offsety)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*point\\.kinoko\\.(centerx|centery)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*point\\.(centerx|centery)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*point\\.basepos\\.(x|y)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*(collisionex|collision)[0-9]+"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*animation[0-9]+\\.(interval|option)"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*animation[0-9]+\\.pattern[0-9]+"
+			},
+			{
+				"name": "entity.name.class",
+				"match": "^\\s*animation[0-9]+\\.(collisionex|collision)[0-9]+"
+			}]
+		},
+		"file":{
+			"patterns": [{
+				"name": "constant.character",
+				"match": "[/\\\\0-9a-zA-Z_-]+.png"
+			}]
+		},
+		"jump":{
+			
+		},
+		"strings": {
+			"name": "string.quoted.double.satori",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.satori",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "text.surfaces"
+}
