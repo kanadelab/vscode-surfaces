@@ -54,7 +54,7 @@
 			"patterns":[
 			{
 				"name": "keyword.control",
-				"match": "(rarely|overlayfast|overlay|bind|sometimes|random|periodic|always|never|yen-e|talk|base|replace|interpolate|asis|move|add|reduce|insert|start|stop|runonce|alternativestart|alternativestop|descript|charset|descend|exclusive|background|rect|polygon|ellipse|circle)"
+				"match": "(rarely|overlayfast|overlay|bind|sometimes|random|periodic|always|never|yen-e|talk|base|replace|interpolate|asis|move|add|reduce|insert|start|stop|runonce|alternativestart|alternativestop|parallelstart|parallelstop|descript|charset|descend|exclusive|background|rect|polygon|ellipse|circle)"
 			},
 			{
 				"name": "keyword.control",

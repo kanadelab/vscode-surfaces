@@ -12,3 +12,7 @@
 * 0.0.2 marketplaceで公開
 * 0.0.3 overlayfastがハイライトされない問題を修正
 * 0.0.4 キーワードを含むファイル名がある場合にファイル名としてのハイライトを優先するように修正
+* 0.0.5 parallelstart/parallelstop を認識するように対応、alternativestartの説明が間違ってたので修正
+* 0.0.7 elementの指定画像ファイルをホバーしたときに表示される情報から開けるように
+* 0.0.8 animation の surface番号指定部分で参照先の surface へ「定義に移動」できるようにしてみた
+* 0.0.9 ブラウザ版vscodeにおためし対応

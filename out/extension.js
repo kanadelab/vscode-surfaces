@@ -1,6 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
+// The module 'vscode' contains the VS Code extensibility API
+// Import the module and reference it with the alias vscode in your code below
+const path = require("path");
 const vscode = require("vscode");
 class SurfacesKeywordDesc {
     constructor(name, detail, shortDetail, document = null, primary = false) {
@@ -76,15 +79,25 @@ class SurfacesSignatureHelpProvider {
             animationPatternSignature.parameters[0],
             new vscode.ParameterInformation("アニメーションID", "[insert メソッド特有]\n停止するアニメーションIDを指定します。")
         ];
-        var animationPatternAlternativestartSignature = new vscode.SignatureInformation("animation*.pattern*,alternativestart,アニメーションID");
+        var animationPatternAlternativestartSignature = new vscode.SignatureInformation("animation*.pattern*,alternativestart,(アニメーションID)");
         animationPatternAlternativestartSignature.parameters = [
             animationPatternSignature.parameters[0],
-            new vscode.ParameterInformation("アニメーションID", "[alternativestart メソッド特有]\n開始するアニメーションIDを指定します。")
+            new vscode.ParameterInformation("アニメーションID", "[alternativestart メソッド特有]\n開始するアニメーションIDを括弧内に複数指定します。")
         ];
-        var animationPatternAlternativestopSignature = new vscode.SignatureInformation("animation*.pattern*,alternativestop,アニメーションID");
+        var animationPatternAlternativestopSignature = new vscode.SignatureInformation("animation*.pattern*,alternativestop,(アニメーションID)");
         animationPatternAlternativestopSignature.parameters = [
             animationPatternSignature.parameters[0],
-            new vscode.ParameterInformation("アニメーションID", "[alternativestop メソッド特有]\n停止するアニメーションIDを指定します。")
+            new vscode.ParameterInformation("アニメーションID", "[alternativestop メソッド特有]\n停止するアニメーションIDを括弧内に複数指定します。")
+        ];
+        var animationPatternParallelstartSignature = new vscode.SignatureInformation("animation*.pattern*,parallelstart,(アニメーションID)");
+        animationPatternParallelstartSignature.parameters = [
+            animationPatternSignature.parameters[0],
+            new vscode.ParameterInformation("アニメーションID", "[parallelstart  メソッド特有]\r開始するアニメーションIDを括弧内に複数指定します。")
+        ];
+        var animationPatternParallelstopSignature = new vscode.SignatureInformation("animation*.pattern*,parallelstart,(アニメーションID)");
+        animationPatternParallelstopSignature.parameters = [
+            animationPatternSignature.parameters[0],
+            new vscode.ParameterInformation("アニメーションID", "[parallelstop  メソッド特有]\n停止するアニメーションIDを括弧内に複数指定します。")
         ];
         var collisionIDParameter = new vscode.ParameterInformation("判定ID", "判定の名前を示すID。headやbustなど。");
         var collisionExTypeParameter = new vscode.ParameterInformation("判定タイプ", "判定の形状を指定します。");
@@ -198,7 +211,15 @@ class SurfacesSignatureHelpProvider {
                     return res;
                 }
                 else if (splitItems[1] == "alternativestop") {
-                    var res = this.selectSignatureToSplitItemCount(animationPatternAlternativestartSignature, splitItems.length, true);
+                    var res = this.selectSignatureToSplitItemCount(animationPatternAlternativestopSignature, splitItems.length, true);
+                    return res;
+                }
+                else if (splitItems[1] == "parallelstart") {
+                    var res = this.selectSignatureToSplitItemCount(animationPatternParallelstartSignature, splitItems.length, true);
+                    return res;
+                }
+                else if (splitItems[1] == "parallelstop") {
+                    var res = this.selectSignatureToSplitItemCount(animationPatternParallelstopSignature, splitItems.length, true);
                     return res;
                 }
             }
@@ -284,6 +305,14 @@ class SurfacesHoverProvider {
         else
             return label + ": (設定が必要)";
     }
+    addMarkdownImageItem(label, stringArray, index, document) {
+        if (stringArray.length >= index + 1) {
+            var target = path.dirname(document.fileName) + path.sep + stringArray[index];
+            return label + ": [" + stringArray[index] + "](file:///" + target + ")";
+        }
+        else
+            return label + ": (設定が必要)";
+    }
     provideHover(document, position, token) {
         var texts = {
             sometimes: "毎秒50%の確率でアニメーション。",
@@ -310,10 +339,13 @@ class SurfacesHoverProvider {
             stop: "指定アニメーションを停止",
             alternativestart: "指定アニメーションのいずれかを開始",
             alternativestop: "指定アニメーションのいずれかを終了",
+            parallelstart: "指定アニメーションをすべて開始",
+            parallelstop: "指定アニメーションをすべて停止",
             rect: "長方形",
             circle: "円形",
             ellipse: "楕円形",
-            polygon: "多角形"
+            polygon: "多角形",
+            region: "色による領域指定"
         };
         var word_range = document.getWordRangeAtPosition(position);
         var word = document.getText(word_range);
@@ -388,7 +420,7 @@ class SurfacesHoverProvider {
             mk.appendText("サーフェス エレメント\n");
             mk.appendText(split_items[0]);
             mk.appendMarkdown(this.addMarkdownItem("\n- 合成メソッド", split_items, 1));
-            mk.appendMarkdown(this.addMarkdownItem("\n- ファイル名", split_items, 2));
+            mk.appendMarkdown(this.addMarkdownImageItem("\n- ファイル名", split_items, 2, document));
             mk.appendMarkdown(this.addMarkdownItem("\n- 座標X", split_items, 3));
             mk.appendMarkdown(this.addMarkdownItem("\n- 座標Y", split_items, 4));
             return new vscode.Hover(mk);
@@ -435,6 +467,14 @@ class SurfacesHoverProvider {
             }
             else if (split_items[2] == "polygon") {
                 mk.appendMarkdown("\n- 判定タイプ: 多角形");
+            }
+            else if (split_items[2] == "region") {
+                mk.appendMarkdown("\n- 判定タイプ: 色による領域指定");
+                mk.appendMarkdown(this.addMarkdownItem("\n- 画像ファイル", split_items, 3));
+                mk.appendMarkdown(this.addMarkdownItem("\n- R値", split_items, 4));
+                mk.appendMarkdown(this.addMarkdownItem("\n- G値", split_items, 5));
+                mk.appendMarkdown(this.addMarkdownItem("\n- B値", split_items, 6));
+                mk.appendMarkdown(this.addMarkdownItem("\n- 反転設定", split_items, 7));
             }
             return new vscode.Hover(mk);
         }
@@ -492,8 +532,10 @@ class SurfacesCompletionItemProvider {
             ["insert", "着せ替えグループの挿入"],
             ["start", "指定アニメーションを開始", "例:\nstart,10\nanimation10を再生"],
             ["stop", "指定アニメーションを開始", "例:\nstart,10\nanimation10を停止"],
-            ["alternativestart", "指定アニメーションのいずれかを開始", "例:\nalternativestart,(10,11,12)\nanimation10,11,12のどれか停止"],
+            ["alternativestart", "指定アニメーションのいずれかを開始", "例:\nalternativestart,(10,11,12)\nanimation10,11,12のどれかを再生"],
             ["alternativestop", "指定アニメーションのいずれかを停止", "例:\nalternativesstop,(10,11,12)\nanimation10,11,12のどれかを停止"],
+            ["parallelstart", "指定アニメーションをすべて開始", "例:\nparallelstart,(10,11,12)\nanimation10,11,12をすべて再生"],
+            ["parallelstop", "指定アニメーションをすべてを停止", "例:\nparallelstop,(10,11,12)\nanimation10,11,12をすべて停止"]
         ];
         for (var i of items) {
             var ci = new vscode.CompletionItem(i[0]);
@@ -530,7 +572,8 @@ class SurfacesCompletionItemProvider {
             ["rect", "長方形", ""],
             ["circle", "円形", ""],
             ["ellipse", "楕円形", ""],
-            ["polygon", "多角形", ""]
+            ["polygon", "多角形", ""],
+            ["region", "色による領域指定", ""]
         ];
         for (var i of items) {
             var ci = new vscode.CompletionItem(i[0]);
@@ -570,12 +613,101 @@ class SurfacesCompletionItemProvider {
         return result;
     }
 }
+class SurfacesDefinitionProvider {
+    testSurfaceRange(label, surface_id) {
+        var parsed_label = label.replace("surface", "").replace(".append", "");
+        var sp = parsed_label.split(',');
+        var valid = false;
+        for (var i = 0; i < sp.length; i++) {
+            var item = sp[i];
+            var cancel_mode = false;
+            var found = false;
+            if (item[0] == '!') {
+                //キャンセル部分
+                cancel_mode = true;
+                item = item.substr(1);
+            }
+            if (item.indexOf('-') >= 0) {
+                //範囲指定
+                var range = item.split('-');
+                if (range.length == 2) {
+                    if (range[0] <= range[1] && Number(range[0]) <= surface_id && Number(range[1]) >= surface_id) {
+                        found = true;
+                    }
+                    else if (Number(range[1]) <= surface_id && Number(range[0]) >= surface_id) {
+                        found = true;
+                    }
+                }
+            }
+            else {
+                //範囲指定なし
+                if (Number(item) == surface_id)
+                    found = true;
+            }
+            if (found) {
+                //見つかった
+                if (cancel_mode) {
+                    //除外条件に含まれているなら、必ず無効
+                    return false;
+                }
+                else {
+                    valid = true;
+                }
+            }
+        }
+        return valid;
+    }
+    provideDefinition(document, position, token) {
+        var word_range = document.getWordRangeAtPosition(position);
+        var word = document.getText(word_range);
+        var line = document.lineAt(position.line).text;
+        var surface_found = false;
+        if (line.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+            //start, stop など特殊なモノへの対応
+            //var splitItems = line.replace(/\s/, "").split(",");
+            //animationのsurface指定を探す
+            var splitItems = line.split(',');
+            if (splitItems.length == 3) {
+                if (splitItems[0].length + splitItems[1].length + 2 <= position.character) {
+                    surface_found = true;
+                }
+            }
+            else if (splitItems.length > 3) {
+                if (splitItems[0].length + splitItems[1].length + 2 <= position.character &&
+                    splitItems[0].length + splitItems[1].length + splitItems[2].length + 3 > position.character) {
+                    surface_found = true;
+                }
+            }
+        }
+        if (!surface_found) {
+            return null;
+        }
+        var surface_id = Number(word);
+        if (surface_id == null) {
+            return null;
+        }
+        //検索
+        var resultLocations = [];
+        for (var i = 0; i < document.lineCount; i++) {
+            var testLine = document.lineAt(i);
+            var line = testLine.text;
+            if (line.match(/^\s*surface/)) {
+                if (this.testSurfaceRange(line, surface_id)) {
+                    var loc = new vscode.Location(document.uri, testLine.range);
+                    resultLocations.push(loc);
+                }
+            }
+        }
+        return resultLocations;
+    }
+}
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 function activate(context) {
     context.subscriptions.push(vscode.languages.registerHoverProvider('surfaces', new SurfacesHoverProvider()));
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider('surfaces', new SurfacesCompletionItemProvider(), ',', '.', '+'));
     context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('surfaces', new SurfacesSignatureHelpProvider(), ","));
+    context.subscriptions.push(vscode.languages.registerDefinitionProvider('surfaces', new SurfacesDefinitionProvider()));
 }
 exports.activate = activate;
 // this method is called when your extension is deactivated

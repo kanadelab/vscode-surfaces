@@ -2,8 +2,9 @@
     "name": "surfaces",
     "displayName": "surfaces.txt",
     "description": "伺かゴーストシェル surfaces.txt エクステンション",
-    "version": "0.0.4",
+    "version": "0.0.12",
     "publisher": "kanadelab",
+    "repository": "",
     "engines": {
         "vscode": "^1.53.0"
     },
@@ -11,18 +12,26 @@
         "Programming Languages"
     ],
     "main": "./out/extension.js",
+    "browser": "./out/extension-browser.js",
     "activationEvents": [
-		"onLanguage:surfaces"
-	],
+        "onLanguage:surfaces"
+    ],
     "contributes": {
         "capabilities": {
+            "definitionProvider": "true",
             "hoverProvider": "true",
-            "completionProvider" : {
+            "completionProvider": {
                 "resolveProvider": "true",
-                "triggerCharacters": [ ".", ",", "+" ]
+                "triggerCharacters": [
+                    ".",
+                    ",",
+                    "+"
+                ]
             },
-            "signatureHelpProvider" : {
-                "triggerCharacters": [ "," ]
+            "signatureHelpProvider": {
+                "triggerCharacters": [
+                    ","
+                ]
             }
         },
         "languages": [

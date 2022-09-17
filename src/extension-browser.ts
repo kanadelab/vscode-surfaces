@@ -1,6 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as path from 'path';
+//import * as path from 'path';
 import * as vscode from 'vscode';
 
 class SurfacesKeywordDesc{
@@ -345,8 +345,9 @@ class SurfacesHoverProvider implements vscode.HoverProvider{
 
 	private addMarkdownImageItem(label:string, stringArray:string[], index:number, document:vscode.TextDocument):string{
 		if(stringArray.length >= index+1){
-			var target = path.dirname(document.fileName) + path.sep + stringArray[index];
-			return label + ": [" + stringArray[index] + "](file:///" + target + ")";
+			//var target = path.dirname(document.fileName) + path.sep + stringArray[index];
+			//return label + ": [" + stringArray[index] + "](file:///" + target + ")";
+			return label + stringArray[index];
 		}
 		else
 			return label + ": (設定が必要)";
