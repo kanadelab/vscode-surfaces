@@ -40,8 +40,8 @@
                 "aliases": [
                     "surfaces.txt"
                 ],
-                "extensions": [
-                    "surfaces.txt"
+                "filenamePatterns": [
+                    "surfaces*.txt"
                 ],
                 "configuration": "./language-configuration.json"
             }
