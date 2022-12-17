@@ -2,9 +2,9 @@
     "name": "surfaces",
     "displayName": "surfaces.txt",
     "description": "伺かゴーストシェル surfaces.txt エクステンション",
-    "version": "0.0.12",
+    "version": "0.0.13",
     "publisher": "kanadelab",
-    "repository": "",
+    "repository": "https://github.com/kanadelab/vscode-surfaces",
     "engines": {
         "vscode": "^1.53.0"
     },
