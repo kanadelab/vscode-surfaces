@@ -458,9 +458,9 @@ class SurfacesHoverProvider implements vscode.HoverProvider{
 				else
 					mk.appendMarkdown("\n- X座標: (設定が必要です)" );
 				if(split_items.length >= 6)
-					mk.appendMarkdown("\n- X座標: " + split_items[5] );
+					mk.appendMarkdown("\n- Y座標: " + split_items[5] );
 				else
-					mk.appendMarkdown("\n- X座標: (設定が必要です)" );
+					mk.appendMarkdown("\n- Y座標: (設定が必要です)" );
 
 				return new vscode.Hover(mk);
 			}
