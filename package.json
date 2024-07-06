@@ -15,7 +15,7 @@
         "ukagaka"
     ],
     "main": "./out/extension.js",
-    "browser": "./out/extension-browser.js",
+    "browser": "./out/extension.js",
     "activationEvents": [
         "onLanguage:surfaces"
     ],
