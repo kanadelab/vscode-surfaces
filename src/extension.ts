@@ -1,5 +1,6 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
+import { log } from 'console';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -702,7 +703,7 @@ class SurfacesCompletionItemProvider implements vscode.CompletionItemProvider {
 
 class SurfacesDefinitionProvider implements vscode.DefinitionProvider{
 
-	testSurfaceRange(label:string, surface_id:number) : boolean{
+	static testSurfaceRange(label:string, surface_id:number) : boolean{
 
 		var parsed_label = label.replace("surface", "").replace(".append", "");
 		var sp = parsed_label.split(',');
@@ -798,14 +799,93 @@ class SurfacesDefinitionProvider implements vscode.DefinitionProvider{
 			var line = testLine.text;
 
 			if(line.match(/^\s*surface/)){
-				if(this.testSurfaceRange(line, surface_id)){
+				if(SurfacesDefinitionProvider.testSurfaceRange(line, surface_id)){
 					var loc:vscode.Location = new vscode.Location(document.uri, testLine.range);
 					resultLocations.push(loc);	
 				}
 			}
-
 		}
 		return resultLocations;
+	}
+}
+
+class SurfaceCallHierarchyProvider implements vscode.CallHierarchyProvider
+{
+	prepareCallHierarchy(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CallHierarchyItem | vscode.CallHierarchyItem[]> {
+
+		//今のlineがsurfaces?
+		var currentLine = position.line;
+		while(currentLine >= 0){
+			var testLine = document.lineAt(currentLine);
+			var line = testLine.text;
+
+			if(line.match(/^\s*surface/)){
+				//surfaceブレスを確認
+				var result = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line, "surface definition", document.uri, testLine.range, testLine.range);
+				return result;
+			}
+			currentLine--;
+		}
+
+		return [];
+	}
+	async provideCallHierarchyIncomingCalls(item: vscode.CallHierarchyItem, token: vscode.CancellationToken): Promise<vscode.CallHierarchyIncomingCall[]> {
+		const document = await vscode.workspace.openTextDocument(item.uri);
+
+		if(item.kind == vscode.SymbolKind.Class){
+			//アニメーションパターン列挙
+			var currentLine = item.range.start.line;
+			var items = [];
+			var surfaceSet = new Set();
+			while(true)
+			{
+				var testLine = document.lineAt(currentLine);
+				var line = testLine.text;
+
+				if(line.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+					//パターンを分離して解析してみる
+					var split_items = line.replace(/\s/, "").split(",");
+					if(split_items.length > 2) {
+						if(!surfaceSet.has(split_items[2])){
+							surfaceSet.add(split_items[2]);
+							var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, "animation.pattern", item.uri, testLine.range, testLine.range);
+							items.push(new vscode.CallHierarchyIncomingCall(hItem, [testLine.range]));
+						}
+					}
+				}
+
+				if(line.match("}"))
+				{
+					break;
+				}
+
+				currentLine++;
+			}
+			return items;
+		}
+		else if(item.kind == vscode.SymbolKind.Method){
+			//サーフェス番号を得る
+			var surface_id = Number.parseInt(item.name);// Number.parseInt(item.name.substring("surface".length));
+			var items = [];
+			for(var i = 0; i < document.lineCount; i++) {
+				var testLine = document.lineAt(i);
+				var line = testLine.text;
+
+				if(line.match(/^\s*surface/)){
+					if(SurfacesDefinitionProvider.testSurfaceRange(line, surface_id)){
+						var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line, "surface definition", document.uri, testLine.range, testLine.range);
+						items.push(new vscode.CallHierarchyIncomingCall(hItem, [testLine.range]));
+					}
+				}
+			}
+			return items;
+		}
+
+		return [];
+	}
+	async provideCallHierarchyOutgoingCalls(item: vscode.CallHierarchyItem, token: vscode.CancellationToken): Promise<vscode.CallHierarchyOutgoingCall[]> {
+		return [];
+
 	}
 	
 }
@@ -818,6 +898,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.languages.registerCompletionItemProvider('surfaces', new SurfacesCompletionItemProvider(), ',', '.', '+'));
 	context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('surfaces', new SurfacesSignatureHelpProvider(), ","));
 	context.subscriptions.push(vscode.languages.registerDefinitionProvider('surfaces', new SurfacesDefinitionProvider()));
+	context.subscriptions.push(vscode.languages.registerCallHierarchyProvider('surfaces', new SurfaceCallHierarchyProvider()));
 }
 
 // this method is called when your extension is deactivated
