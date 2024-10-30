@@ -39,15 +39,19 @@
 				},
 				{
 					"name": "entity.name.class",
-					"match": "^\\s*//satolist\\.palette\\.(offset|visible)"
+					"match": "^\\s*//satolist\\.palette\\.(offset|visible|frame|expand)"
 				},
 				{
 					"name": "entity.name.class",
 					"match": "^\\s*//satolist\\.viewer\\.visible"
 				},
 				{
-				"name": "comment.line",
-				"match": "//.*"
+					"name": "entity.name.class",
+					"match": "^\\s*//satolist\\.surface\\.visible"
+				},
+				{
+					"name": "comment.line",
+					"match": "//.*"
 				}]
 		},
 		"keywords":{

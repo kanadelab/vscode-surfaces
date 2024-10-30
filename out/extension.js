@@ -1,8 +1,15 @@
 "use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deactivate = exports.activate = void 0;
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 const path = require("path");
 const vscode = require("vscode");
 class SurfacesKeywordDesc {
@@ -298,6 +305,7 @@ class SurfacesSignatureHelpProvider {
         return null;
     }
 }
+//ホバー
 class SurfacesHoverProvider {
     addMarkdownItem(label, stringArray, index) {
         if (stringArray.length >= index + 1)
@@ -423,6 +431,11 @@ class SurfacesHoverProvider {
             mk.appendMarkdown(this.addMarkdownImageItem("\n- ファイル名", split_items, 2, document));
             mk.appendMarkdown(this.addMarkdownItem("\n- 座標X", split_items, 3));
             mk.appendMarkdown(this.addMarkdownItem("\n- 座標Y", split_items, 4));
+            //画像プレビュー
+            if (split_items.length > 2) {
+                var target = path.dirname(document.fileName) + path.sep + split_items[2];
+                mk.appendMarkdown(`  \n![preview](file:///${target} "${split_items[2]}")`);
+            }
             return new vscode.Hover(mk);
         }
         else if (line.match(/^\s*collision[0-9]+,/) || line.match(/^\s*animation[0-9]+\.collision[0-9]+,/)) {
@@ -481,14 +494,7 @@ class SurfacesHoverProvider {
         return null;
     }
 }
-/*
-const animationIntervalLibrary:SurfacesKeywordDesc[] = [
-    new SurfacesKeywordDesc("sometimes", "毎秒50%の確率で再生", "毎秒50%", null, true),
-    new SurfacesKeywordDesc("rarely", "毎秒25%の確率", "毎秒25%"),
-    new SurfacesKeywordDesc("random", "毎秒 (数値)分の1の確率", "(設定値)分の1の確率", "例:\nrandom,10\n毎秒10分の1の確率"),
-    new SurfacesKeywordDesc("periodic", "指定秒数間隔で定期的に再生", "(設定値)秒ごと")
-]
-*/
+//補完
 class SurfacesCompletionItemProvider {
     MakeIntervalItems() {
         var result = [];
@@ -613,8 +619,9 @@ class SurfacesCompletionItemProvider {
         return result;
     }
 }
+//定義ジャンプ
 class SurfacesDefinitionProvider {
-    testSurfaceRange(label, surface_id) {
+    static testSurfaceRange(label, surface_id) {
         var parsed_label = label.replace("surface", "").replace(".append", "");
         var sp = parsed_label.split(',');
         var valid = false;
@@ -692,13 +699,228 @@ class SurfacesDefinitionProvider {
             var testLine = document.lineAt(i);
             var line = testLine.text;
             if (line.match(/^\s*surface/)) {
-                if (this.testSurfaceRange(line, surface_id)) {
+                if (SurfacesDefinitionProvider.testSurfaceRange(line, surface_id)) {
                     var loc = new vscode.Location(document.uri, testLine.range);
                     resultLocations.push(loc);
                 }
             }
         }
         return resultLocations;
+    }
+}
+//呼び出し階層の表示機能
+class SurfaceCallHierarchyProvider {
+    prepareCallHierarchy(document, position, token) {
+        //今のlineがsurfaces?
+        var currentLine = position.line;
+        while (currentLine >= 0) {
+            var testLine = document.lineAt(currentLine);
+            var line = testLine.text;
+            if (line.match(/^\s*surface/)) {
+                //surfaceブレスを確認
+                var result = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line, "surface definition", document.uri, testLine.range, testLine.range);
+                return result;
+            }
+            currentLine--;
+        }
+        return [];
+    }
+    provideCallHierarchyIncomingCalls(item, token) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const document = yield vscode.workspace.openTextDocument(item.uri);
+            if (item.kind == vscode.SymbolKind.Class) {
+                //アニメーションパターン列挙
+                var currentLine = item.range.start.line;
+                var items = [];
+                var surfaceSet = new Set();
+                while (true) {
+                    var testLine = document.lineAt(currentLine);
+                    var line = testLine.text;
+                    if (line.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+                        //パターンを分離して解析してみる
+                        var split_items = line.replace(/\s/, "").split(",");
+                        if (split_items.length > 2) {
+                            if (!surfaceSet.has(split_items[2])) {
+                                surfaceSet.add(split_items[2]);
+                                var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, "animation.pattern", item.uri, testLine.range, testLine.range);
+                                items.push(new vscode.CallHierarchyIncomingCall(hItem, [testLine.range]));
+                            }
+                        }
+                    }
+                    if (line.match("}")) {
+                        break;
+                    }
+                    currentLine++;
+                }
+                return items;
+            }
+            else if (item.kind == vscode.SymbolKind.Method) {
+                //サーフェス番号を得る
+                var surface_id = Number.parseInt(item.name); // Number.parseInt(item.name.substring("surface".length));
+                var items = [];
+                for (var i = 0; i < document.lineCount; i++) {
+                    var testLine = document.lineAt(i);
+                    var line = testLine.text;
+                    if (line.match(/^\s*surface/)) {
+                        if (SurfacesDefinitionProvider.testSurfaceRange(line, surface_id)) {
+                            var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line, "surface definition", document.uri, testLine.range, testLine.range);
+                            items.push(new vscode.CallHierarchyIncomingCall(hItem, [testLine.range]));
+                        }
+                    }
+                }
+                return items;
+            }
+            return [];
+        });
+    }
+    provideCallHierarchyOutgoingCalls(item, token) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return [];
+        });
+    }
+}
+//ドキュメントアウトライン
+class SurfaceOutlineProvider {
+    provideDocumentSymbols(document, token) {
+        const resultItems = [];
+        let currentSurface = null;
+        let result = "";
+        //直前のコメントを取得
+        function FetchComment(inputLine) {
+            for (let i = inputLine.lineNumber - 1; i >= 0; i--) {
+                const line = document.lineAt(i);
+                if (line.isEmptyOrWhitespace) {
+                    //空行ならパス
+                    continue;
+                }
+                const match = line.text.match(/^\s*\/\/+(.+)/);
+                if (match) {
+                    const comment = match[1];
+                    if (!comment) {
+                        //コメントが空ならパス
+                        continue;
+                    }
+                    result = comment;
+                    continue;
+                }
+                //一致しなくなったら終わり（一番上の行を持ってくる）
+                return result;
+            }
+            return "";
+        }
+        function CurrentSurfaceAnimation(title, line) {
+            if (currentSurface) {
+                if (title in currentSurface.animations) {
+                    const anim = currentSurface.animations[title];
+                    anim.range = new vscode.Range(anim.range.start, line.range.end);
+                    return anim;
+                }
+                else {
+                    //新規でアニメーションを作成する場合、直前の行がコメントっぽければコメントを一言程度表示する
+                    const newAnimation = new vscode.DocumentSymbol(title, FetchComment(line), vscode.SymbolKind.Struct, line.range, line.range);
+                    currentSurface.info.children.push(newAnimation);
+                    currentSurface.animations[title] = newAnimation;
+                    return newAnimation;
+                }
+            }
+            throw new Error('not found');
+        }
+        //各行を分析していく
+        for (let i = 0; i < document.lineCount; i++) {
+            if (token.isCancellationRequested) {
+                return [];
+            }
+            const line = document.lineAt(i);
+            if (line.text.match(/^\s*surface(.append)?[0-9]+/)) {
+                var sym = new vscode.DocumentSymbol(line.text, FetchComment(line), vscode.SymbolKind.Class, line.range, line.range);
+                if (currentSurface) {
+                    currentSurface.info.range = new vscode.Range(currentSurface.info.range.start, document.lineAt(i - 1).range.end);
+                }
+                currentSurface = {
+                    info: sym,
+                    animations: {}
+                };
+                resultItems.push(currentSurface);
+            }
+            else if (line.text.match(/^\s*element[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 3) {
+                        var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[2], vscode.SymbolKind.File, line.range, line.range);
+                        currentSurface.info.children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*animation[0-9]+\.interval,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 1) {
+                        var animTitles = splitItems[0].split(".");
+                        var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Event, line.range, line.range);
+                        CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*animation[0-9]+\.option,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 1) {
+                        var animTitles = splitItems[0].split(".");
+                        var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Property, line.range, line.range);
+                        CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 3) {
+                        var animTitles = splitItems[0].split(".");
+                        var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), "surface" + splitItems[2], vscode.SymbolKind.Method, line.range, line.range);
+                        CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*animation[0-9]+\.collision[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 6) {
+                        var animTitles = splitItems[0].split(".");
+                        var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[5], vscode.SymbolKind.Variable, line.range, line.range);
+                        CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*animation[0-9]+\.collisionex[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 2) {
+                        var animTitles = splitItems[0].split(".");
+                        var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Variable, line.range, line.range);
+                        CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*collision[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 6) {
+                        var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[5], vscode.SymbolKind.Variable, line.range, line.range);
+                        currentSurface.info.children.push(sym);
+                    }
+                }
+            }
+            else if (line.text.match(/^\s*collisionex[0-9]+,/)) {
+                if (currentSurface) {
+                    var splitItems = line.text.replace(/\s/, "").split(",");
+                    if (splitItems.length >= 2) {
+                        var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[1], vscode.SymbolKind.Variable, line.range, line.range);
+                        currentSurface.info.children.push(sym);
+                    }
+                }
+            }
+        }
+        return resultItems.map(o => o.info);
     }
 }
 // this method is called when your extension is activated
@@ -708,6 +930,8 @@ function activate(context) {
     context.subscriptions.push(vscode.languages.registerCompletionItemProvider('surfaces', new SurfacesCompletionItemProvider(), ',', '.', '+'));
     context.subscriptions.push(vscode.languages.registerSignatureHelpProvider('surfaces', new SurfacesSignatureHelpProvider(), ","));
     context.subscriptions.push(vscode.languages.registerDefinitionProvider('surfaces', new SurfacesDefinitionProvider()));
+    context.subscriptions.push(vscode.languages.registerCallHierarchyProvider('surfaces', new SurfaceCallHierarchyProvider()));
+    context.subscriptions.push(vscode.languages.registerDocumentSymbolProvider('surfaces', new SurfaceOutlineProvider()));
 }
 exports.activate = activate;
 // this method is called when your extension is deactivated
