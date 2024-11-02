@@ -481,9 +481,9 @@ class SurfacesHoverProvider implements vscode.HoverProvider {
 			mk.appendMarkdown(this.addMarkdownItem("\n- 座標Y", split_items, 4));
 
 			//画像プレビュー
-			if(split_items.length > 2){
+			if (split_items.length > 2) {
 				var target = path.dirname(document.fileName) + path.sep + split_items[2];
-				mk.appendMarkdown( `  \n![preview](file:///${target} "${split_items[2]}")`);
+				mk.appendMarkdown(`  \n![preview](file:///${target} "${split_items[2]}")`);
 			}
 
 			return new vscode.Hover(mk);
@@ -816,14 +816,22 @@ class SurfaceCallHierarchyProvider implements vscode.CallHierarchyProvider {
 
 			if (line.match(/^\s*surface/)) {
 				//surfaceブレスを確認
-				var result = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line, "surface definition", document.uri, testLine.range, testLine.range);
+				var result = new vscode.CallHierarchyItem(vscode.SymbolKind.Class, line.replace(/\s/, ""), "surface definition", document.uri, testLine.range, testLine.range);
 				return result;
+			}
+			else if(line.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)){
+				var split_items = line.replace(/\s/, "").split(",");
+				if (split_items.length > 2) {
+					var result = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, split_items[0], document.uri, testLine.range, testLine.range);
+					return result;
+				}
 			}
 			currentLine--;
 		}
 
 		return [];
 	}
+
 	async provideCallHierarchyIncomingCalls(item: vscode.CallHierarchyItem, token: vscode.CancellationToken): Promise<vscode.CallHierarchyIncomingCall[]> {
 		const document = await vscode.workspace.openTextDocument(item.uri);
 
@@ -842,7 +850,7 @@ class SurfaceCallHierarchyProvider implements vscode.CallHierarchyProvider {
 					if (split_items.length > 2) {
 						if (!surfaceSet.has(split_items[2])) {
 							surfaceSet.add(split_items[2]);
-							var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, "animation.pattern", item.uri, testLine.range, testLine.range);
+							var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, split_items[0], item.uri, testLine.range, testLine.range);
 							items.push(new vscode.CallHierarchyIncomingCall(hItem, [testLine.range]));
 						}
 					}
@@ -877,37 +885,62 @@ class SurfaceCallHierarchyProvider implements vscode.CallHierarchyProvider {
 		return [];
 	}
 	async provideCallHierarchyOutgoingCalls(item: vscode.CallHierarchyItem, token: vscode.CancellationToken): Promise<vscode.CallHierarchyOutgoingCall[]> {
+
+		const document = await vscode.workspace.openTextDocument(item.uri);
+
+		if (item.kind == vscode.SymbolKind.Class) {
+			var items: vscode.CallHierarchyOutgoingCall[] = [];
+			const surface_range = item.name.replace('surface', '').replace('.append', '');
+
+			for (var i = 0; i < document.lineCount; i++) {
+				var testLine = document.lineAt(i);
+				var line = testLine.text;
+
+				if (line.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+					//パターンを分離して解析してみる
+					var split_items = line.replace(/\s/, "").split(",");
+					if (split_items.length > 2) {
+						const animation_surface = split_items[2];
+						var surface_id = Number.parseInt(animation_surface);
+						if (!isNaN(surface_id) && SurfacesDefinitionProvider.testSurfaceRange(surface_range, surface_id)) {
+							var hItem = new vscode.CallHierarchyItem(vscode.SymbolKind.Method, `${split_items[2]}`, split_items[0], item.uri, testLine.range, testLine.range);
+							items.push(new vscode.CallHierarchyOutgoingCall(hItem, [testLine.range]));
+						}
+					}
+				}
+			}
+			return items;
+		}
+
 		return [];
-
 	}
-
 }
 
 //ドキュメントアウトライン
-class SurfaceOutlineProvider implements vscode.DocumentSymbolProvider
-{
+class SurfaceOutlineProvider implements vscode.DocumentSymbolProvider {
 	provideDocumentSymbols(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.SymbolInformation[] | vscode.DocumentSymbol[]> {
 		type SurfaceSymbol = {
 			info: vscode.DocumentSymbol,
-			animations: {[key:string]:vscode.DocumentSymbol}
+			animations: { [key: string]: vscode.DocumentSymbol }
 		};
 
-		const resultItems:SurfaceSymbol[] = [];
-		let currentSurface:SurfaceSymbol|null = null;
-		let result = "";
+		const resultItems: SurfaceSymbol[] = [];
+		let currentSurface: SurfaceSymbol | null = null;
 
 		//直前のコメントを取得
-		function FetchComment(inputLine:vscode.TextLine):string{
-			for(let i = inputLine.lineNumber-1; i >= 0; i--){
+		function FetchComment(inputLine: vscode.TextLine): string {
+			let result = "";
+
+			for (let i = inputLine.lineNumber - 1; i >= 0; i--) {
 				const line = document.lineAt(i);
-				if(line.isEmptyOrWhitespace){
+				if (line.isEmptyOrWhitespace) {
 					//空行ならパス
 					continue;
 				}
 				const match = line.text.match(/^\s*\/\/+(.+)/);
-				if(match){
+				if (match) {
 					const comment = match[1];
-					if(!comment){
+					if (!comment) {
 						//コメントが空ならパス
 						continue;
 					}
@@ -920,9 +953,9 @@ class SurfaceOutlineProvider implements vscode.DocumentSymbolProvider
 			return "";
 		}
 
-		function CurrentSurfaceAnimation(title:string, line:vscode.TextLine){
-			if(currentSurface){
-				if(title in currentSurface.animations){
+		function CurrentSurfaceAnimation(title: string, line: vscode.TextLine) {
+			if (currentSurface) {
+				if (title in currentSurface.animations) {
 					const anim = currentSurface.animations[title];
 					anim.range = new vscode.Range(anim.range.start, line.range.end);
 					return anim;
@@ -940,16 +973,16 @@ class SurfaceOutlineProvider implements vscode.DocumentSymbolProvider
 		}
 
 		//各行を分析していく
-		for(let i = 0; i < document.lineCount; i ++){
-			if(token.isCancellationRequested){
+		for (let i = 0; i < document.lineCount; i++) {
+			if (token.isCancellationRequested) {
 				return [];
 			}
 
 			const line = document.lineAt(i);
-			if(line.text.match(/^\s*surface(.append)?[0-9]+/)) {
+			if (line.text.match(/^\s*surface(.append)?[0-9]+/)) {
 				var sym = new vscode.DocumentSymbol(line.text, FetchComment(line), vscode.SymbolKind.Class, line.range, line.range);
-				if(currentSurface){
-					currentSurface.info.range = new vscode.Range(currentSurface.info.range.start, document.lineAt(i-1).range.end);
+				if (currentSurface) {
+					currentSurface.info.range = new vscode.Range(currentSurface.info.range.start, document.lineAt(i - 1).range.end);
 				}
 				currentSurface = {
 					info: sym,
@@ -957,84 +990,84 @@ class SurfaceOutlineProvider implements vscode.DocumentSymbolProvider
 				};
 				resultItems.push(currentSurface);
 			}
-			else if(line.text.match(/^\s*element[0-9]+,/)) {
-				if(currentSurface){
+			else if (line.text.match(/^\s*element[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 3){
+					if (splitItems.length >= 3) {
 						var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[2], vscode.SymbolKind.File, line.range, line.range);
 						currentSurface.info.children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*animation[0-9]+\.interval,/)) {
-				if(currentSurface){
+			else if (line.text.match(/^\s*animation[0-9]+\.interval,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 1){
+					if (splitItems.length >= 1) {
 						var animTitles = splitItems[0].split(".");
-						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length+1), splitItems[1], vscode.SymbolKind.Event, line.range, line.range);
+						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Event, line.range, line.range);
 						CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*animation[0-9]+\.option,/)) {
-				if(currentSurface){
+			else if (line.text.match(/^\s*animation[0-9]+\.option,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 1){
+					if (splitItems.length >= 1) {
 						var animTitles = splitItems[0].split(".");
-						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length+1), splitItems[1], vscode.SymbolKind.Property, line.range, line.range);
+						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Property, line.range, line.range);
 						CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)){
-				if(currentSurface){
+			else if (line.text.match(/^\s*animation[0-9]+\.pattern[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 3){
+					if (splitItems.length >= 3) {
 						var animTitles = splitItems[0].split(".");
-						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length+1), "surface"+splitItems[2], vscode.SymbolKind.Method, line.range, line.range);
+						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), "surface" + splitItems[2], vscode.SymbolKind.Method, line.range, line.range);
 						CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*animation[0-9]+\.collision[0-9]+,/)){
-				if(currentSurface){
+			else if (line.text.match(/^\s*animation[0-9]+\.collision[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 6){
+					if (splitItems.length >= 6) {
 						var animTitles = splitItems[0].split(".");
-						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length+1), splitItems[5], vscode.SymbolKind.Variable, line.range, line.range);
+						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[5], vscode.SymbolKind.Variable, line.range, line.range);
 						CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*animation[0-9]+\.collisionex[0-9]+,/)){
-				if(currentSurface){
+			else if (line.text.match(/^\s*animation[0-9]+\.collisionex[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 2){
+					if (splitItems.length >= 2) {
 						var animTitles = splitItems[0].split(".");
-						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length+1), splitItems[1], vscode.SymbolKind.Variable, line.range, line.range);
+						var sym = new vscode.DocumentSymbol(splitItems[0].substring(animTitles[0].length + 1), splitItems[1], vscode.SymbolKind.Variable, line.range, line.range);
 						CurrentSurfaceAnimation(animTitles[0], line).children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*collision[0-9]+,/)){
-				if(currentSurface){
+			else if (line.text.match(/^\s*collision[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 6){
+					if (splitItems.length >= 6) {
 						var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[5], vscode.SymbolKind.Variable, line.range, line.range);
 						currentSurface.info.children.push(sym);
 					}
 				}
 			}
-			else if(line.text.match(/^\s*collisionex[0-9]+,/)){
-				if(currentSurface){
+			else if (line.text.match(/^\s*collisionex[0-9]+,/)) {
+				if (currentSurface) {
 					var splitItems = line.text.replace(/\s/, "").split(",");
-					if(splitItems.length >= 2){
+					if (splitItems.length >= 2) {
 						var sym = new vscode.DocumentSymbol(splitItems[0], splitItems[1], vscode.SymbolKind.Variable, line.range, line.range);
 						currentSurface.info.children.push(sym);
 					}
 				}
 			}
-				
+
 		}
 		return resultItems.map(o => o.info);
 	}
